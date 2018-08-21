@@ -106,7 +106,6 @@ def _get_dse_version_from_cass(cass_version):
         dse_ver = "2.1"
     return dse_ver
 
-
 USE_CASS_EXTERNAL = bool(os.getenv('USE_CASS_EXTERNAL', False))
 KEEP_TEST_CLUSTER = bool(os.getenv('KEEP_TEST_CLUSTER', False))
 SIMULACRON_JAR = os.getenv('SIMULACRON_JAR', None)
@@ -115,7 +114,15 @@ CASSANDRA_IP = os.getenv('CASSANDRA_IP', '127.0.0.1')
 CASSANDRA_DIR = os.getenv('CASSANDRA_DIR', None)
 
 default_cassandra_version = '3.11'
-CASSANDRA_VERSION = Version(os.getenv('CASSANDRA_VERSION', default_cassandra_version))
+cv_string = os.getenv('CASSANDRA_VERSION', default_cassandra_version)
+mcv_string = os.getenv('MAPPED_CASSANDRA_VERSION', None)
+try:
+    cassandra_version = Version(cv_string)  # env var is set to test-dse
+except:
+    # fallback to MAPPED_CASSANDRA_VERSION
+    cassandra_version = Version(mcv_string)
+CASSANDRA_VERSION = Version(mcv_string) if mcv_string else cassandra_version
+CCM_VERSION = cassandra_version if mcv_string else CASSANDRA_VERSION
 
 default_dse_version = _get_dse_version_from_cass(CASSANDRA_VERSION.base_version)
 
@@ -127,8 +134,8 @@ if CASSANDRA_DIR:
     CCM_KWARGS['install_dir'] = CASSANDRA_DIR
 
 else:
-    log.info('Using Cassandra version: %s', CASSANDRA_VERSION)
-    CCM_KWARGS['version'] = CASSANDRA_VERSION
+    log.info('Using Cassandra version: %s', CCM_VERSION)
+    CCM_KWARGS['version'] = CCM_VERSION
 
 #This changes the default contact_point parameter in Cluster
 def set_default_cass_ip():
@@ -339,7 +346,7 @@ def use_cluster(cluster_name, nodes, ipformat=None, start=True, workloads=[], se
     elif ccm_options is None:
         ccm_options = CCM_KWARGS.copy()
 
-    cassandra_version = ccm_options.get('version', CASSANDRA_VERSION)
+    cassandra_version = ccm_options.get('version', CCM_VERSION)
     dse_version = ccm_options.get('version', DSE_VERSION)
 
     if 'version' in ccm_options:
@@ -373,6 +380,14 @@ def use_cluster(cluster_name, nodes, ipformat=None, start=True, workloads=[], se
             log.warning("{0}: {1} Backtrace: {2}".format(ex_type.__name__, ex, traceback.extract_tb(tb)))
             del tb
 
+            ccm_args_env = os.environ.get('CCM_ARGS', None)
+            if ccm_args_env:
+                ccm_args = ccm_args_env.strip().split(' ')
+                while ccm_args:
+                    ccm_arg = ccm_args.pop(0)
+                    ccm_arg_value = True if ccm_arg.startswith('--') else ccm_args.pop(0)
+                    ccm_options[ccm_arg.lstrip('-')] = ccm_arg_value
+
             log.debug("Creating new CCM cluster, {0}, with args {1}".format(cluster_name, ccm_options))
 
             if dse_cluster:
@@ -391,7 +406,6 @@ def use_cluster(cluster_name, nodes, ipformat=None, start=True, workloads=[], se
 
                 CCM_CLUSTER.set_dse_configuration_options(dse_options)
             else:
-                log.debug("Creating new CCM cluster, {0}, with args {1}".format(cluster_name, ccm_options))
                 CCM_CLUSTER = CCMCluster(path, cluster_name, **ccm_options)
                 CCM_CLUSTER.set_configuration_options({'start_native_transport': True})
                 if cassandra_version >= Version('2.2'):
