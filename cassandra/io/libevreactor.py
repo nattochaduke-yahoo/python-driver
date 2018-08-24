@@ -264,7 +264,6 @@ class LibevConnection(Connection):
         Connection.__init__(self, *args, **kwargs)
 
         self.deque = deque()
-        self._deque_lock = Lock()
         self._connect_socket()
         self._socket.setblocking(0)
 
@@ -308,8 +307,7 @@ class LibevConnection(Connection):
 
         while True:
             try:
-                with self._deque_lock:
-                    next_msg = self.deque.popleft()
+                next_msg = self.deque.popleft()
             except IndexError:
                 return
 
@@ -317,15 +315,13 @@ class LibevConnection(Connection):
                 sent = self._socket.send(next_msg)
             except socket.error as err:
                 if (err.args[0] in NONBLOCKING):
-                    with self._deque_lock:
-                        self.deque.appendleft(next_msg)
+                    self.deque.appendleft(next_msg)
                 else:
                     self.defunct(err)
                 return
             else:
                 if sent < len(next_msg):
-                    with self._deque_lock:
-                        self.deque.appendleft(next_msg[sent:])
+                    self.deque.appendleft(next_msg[sent:])
 
     def handle_read(self, watcher, revents, errno=None):
         if revents & libev.EV_ERROR:
@@ -366,6 +362,5 @@ class LibevConnection(Connection):
         else:
             chunks = [data]
 
-        with self._deque_lock:
-            self.deque.extend(chunks)
-            _global_loop.notify()
+        self.deque.extend(chunks)
+        _global_loop.notify()
