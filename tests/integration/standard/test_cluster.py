@@ -747,7 +747,7 @@ class ClusterTests(unittest.TestCase):
                 # make sure none are idle (should have startup messages
                 self.assertFalse(c.is_idle)
                 with c.lock:
-                    connection_request_ids[id(c)] = deque(c.request_ids)  # copy of request ids
+                    connection_request_ids[id(c)] = deque(c._request_ids)  # copy of request ids
 
         # let two heatbeat intervals pass (first one had startup messages in it)
         time.sleep(2 * interval + interval/2)
@@ -759,7 +759,7 @@ class ClusterTests(unittest.TestCase):
             expected_ids = connection_request_ids[id(c)]
             expected_ids.rotate(-1)
             with c.lock:
-                self.assertListEqual(list(c.request_ids), list(expected_ids))
+                self.assertListEqual(list(c._request_ids), list(expected_ids))
 
         # assert idle status
         self.assertTrue(all(c.is_idle for c in connections))

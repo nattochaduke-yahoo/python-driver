@@ -290,11 +290,11 @@ class Connection(object):
             # Don't fill the deque with 2**15 items right away. Start with some and add
             # more if needed.
             initial_size = min(300, self.max_in_flight)
-            self.request_ids = deque(range(initial_size))
+            self._request_ids = deque(range(initial_size))
             self.highest_request_id = initial_size - 1
         else:
             self.max_request_id = min(self.max_in_flight, (2 ** 7) - 1)
-            self.request_ids = deque(range(self.max_request_id + 1))
+            self._request_ids = deque(range(self.max_request_id + 1))
             self.highest_request_id = self.max_request_id
 
         self.lock = RLock()
@@ -442,7 +442,7 @@ class Connection(object):
         This must be called while self.lock is held.
         """
         try:
-            return self.request_ids.popleft()
+            return self._request_ids.popleft()
         except IndexError:
             new_request_id = self.highest_request_id + 1
             # in_flight checks should guarantee this
@@ -603,7 +603,7 @@ class Connection(object):
                 return
 
             with self.lock:
-                self.request_ids.append(stream_id)
+                self._request_ids.append(stream_id)
 
         try:
             response = decoder(header.version, self.user_type_map, stream_id,

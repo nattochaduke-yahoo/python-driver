@@ -43,7 +43,7 @@ def assert_quiescent_pool_state(test_case, cluster, wait=None):
     for holder in cluster.get_connection_holders():
         for connection in holder.get_connections():
             # all ids are unique
-            req_ids = connection.request_ids
+            req_ids = connection._request_ids
             test_case.assertEqual(len(req_ids), len(set(req_ids)))
             test_case.assertEqual(connection.highest_request_id, len(req_ids) - 1)
             test_case.assertEqual(connection.highest_request_id, max(req_ids))
