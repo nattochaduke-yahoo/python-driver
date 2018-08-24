@@ -336,7 +336,6 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
         Connection.__init__(self, *args, **kwargs)
 
         self.deque = deque()
-        self.deque_lock = Lock()
 
         self._connect_socket()
 
@@ -391,27 +390,24 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
 
     def handle_write(self):
         while True:
-            with self.deque_lock:
-                try:
-                    next_msg = self.deque.popleft()
-                except IndexError:
-                    self._writable = False
-                    return
+            try:
+                next_msg = self.deque.popleft()
+            except IndexError:
+                self._writable = False
+                return
 
             try:
                 sent = self.send(next_msg)
                 self._readable = True
             except socket.error as err:
                 if (err.args[0] in NONBLOCKING):
-                    with self.deque_lock:
-                        self.deque.appendleft(next_msg)
+                    self.deque.appendleft(next_msg)
                 else:
                     self.defunct(err)
                 return
             else:
                 if sent < len(next_msg):
-                    with self.deque_lock:
-                        self.deque.appendleft(next_msg[sent:])
+                    self.deque.appendleft(next_msg[sent:])
                     if sent == 0:
                         return
 
@@ -445,9 +441,8 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
         else:
             chunks = [data]
 
-        with self.deque_lock:
-            self.deque.extend(chunks)
-            self._writable = True
+        self.deque.extend(chunks)
+        self._writable = True
         _global_loop.wake_loop()
 
     def writable(self):
