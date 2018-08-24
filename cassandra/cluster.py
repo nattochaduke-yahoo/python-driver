@@ -798,7 +798,7 @@ class Cluster(object):
                  execution_profiles=None,
                  allow_beta_protocol_version=False,
                  timestamp_generator=None,
-                 idle_heartbeat_timeout=30,
+                 idle_heartbeat_timeout=10,
                  no_compact=False):
         """
         ``executor_threads`` defines the number of threads in a pool for handling asynchronous tasks such as
