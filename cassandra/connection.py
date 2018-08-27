@@ -446,7 +446,8 @@ class Connection(object):
         except IndexError:
             new_request_id = self.highest_request_id + 1
             # in_flight checks should guarantee this
-            assert new_request_id <= self.max_request_id
+            if new_request_id > self.ax_request_id:
+                raise RuntimeError('Number of requests Exceeded the maximum inflight requests {}'.format(self.ax_request_id))
             self.highest_request_id = new_request_id
             return self.highest_request_id
 
